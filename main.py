@@ -10,171 +10,99 @@ from utils import jogador_avg
 # CONFIG
 # ==========================
 load_dotenv()
+
 URL = "https://discord.com/channels/996414449143529523/1411432013067714662"
-
-EMAIL = os.getenv("DISCORD_EMAIL", "seu_email_aqui")
-SENHA = os.getenv("DISCORD_PASSWORD", "sua_senha_aqui")
-
+EMAIL = os.getenv("DISCORD_EMAIL")
+SENHA = os.getenv("DISCORD_PASSWORD")
 INTERVALO = 2
 
-
-# ==========================
-# LOGIN
-# ==========================
 def fazer_login(page):
-
     print("🌐 Abrindo Discord...")
-
-    page.goto("https://discord.com/login")
-
-    # esperar página carregar
-    page.wait_for_load_state("networkidle")
-
-    # esperar campo de email
-    page.wait_for_selector("input[name='email']", timeout=30000)
-
-    page.fill("input[name='email']", EMAIL)
-    page.fill("input[name='password']", SENHA)
-
-    page.get_by_role("button", name="Entrar").click()
-
-    # esperar login concluir
-    page.wait_for_timeout(10000)
-
-    print("✅ Login realizado")
-
-    # abrir canal do killfeed
     page.goto(URL)
+    try:
+        page.get_by_text("Continuar no Navegador").click(timeout=5000)
+    except:
+        pass
 
-    esperar_chat(page)
-
-
-# ==========================
-# MONITOR
-# ==========================
-def esperar_chat(page):
-
-    print("⏳ esperando discord carregar...")
-
-    for _ in range(30):
-
-        try:
-            mensagens = page.locator("div[role='log']")
-            if mensagens.count() > 0:
-                print("✅ chat carregado")
-                return
-        except:
-            pass
-
-        time.sleep(2)
-
-    raise Exception("chat não carregou")
+    if page.locator("input[name='email']").is_visible(timeout=5000):
+        page.fill("input[name='email']", EMAIL)
+        page.fill("input[name='password']", SENHA)
+        page.get_by_role("button", name="Entrar").click()
+        page.wait_for_timeout(8000)
+        print("✅ Login realizado")
 
 def monitorar_killfeed(page):
-
-    print("🔎 Esperando chat carregar...")
-
-    # esperar qualquer mensagem aparecer
-    page.wait_for_selector("article", timeout=60000)
-
+    print("🔎 Esperando killfeed...")
+    page.wait_for_selector("div[class*='embedDescription']", timeout=30000)
+    
+    kills_processadas = set()
     print("🚀 Monitoramento iniciado")
 
-    kills_processadas = set()
-
     while True:
-
         try:
+            # Pegamos os elementos atuais na tela
+            elementos = page.locator("div[class*='embedDescription'] span").all()
 
-            mensagens = page.locator("article")
-            total = mensagens.count()
+            for el in elementos:
+                texto = el.inner_text().strip()
 
-            for i in range(total):
+                if texto and texto not in kills_processadas:
+                    # Adicionamos ao set IMEDIATAMENTE para evitar o loop em caso de erro no parser
+                    kills_processadas.add(texto)
+                    
+                    dados = parse_killfeed(texto)
 
-                texto = mensagens.nth(i).inner_text()
-
-                if "m." not in texto:
-                    continue
-
-                linhas = texto.split("\n")
-
-                for linha in linhas:
-
-                    linha = linha.strip()
-
-                    if "m." not in linha:
-                        continue
-
-                    if linha in kills_processadas:
-                        continue
-
-                    dados = parse_killfeed(linha)
+                    # ... dentro do loop de monitorar_killfeed em main.py
 
                     if dados:
-
                         killer = dados["killer"]
                         vitima = dados["vitima"]
 
-                        print("\n🎯 Kill detectada")
-                        print(linha)
+                        is_killer_avg = jogador_avg(killer)
+                        is_vitima_avg = jogador_avg(vitima)
 
-                        if jogador_avg(killer) or jogador_avg(vitima):
+                        # 🛑 FILTRO CRÍTICO: Se NINGUÉM for AVG, ignore completamente e não salve nada
+                        if not is_killer_avg and not is_vitima_avg:
+                            # print(f"ℹ️ Ignorado (Sem membros AVG): {killer} vs {vitima}") # Opcional para debug
+                            continue 
 
-                            print("🔥 KILL AVG DETECTADA")
+                        # LÓGICA DE REGISTRO:
+                        # 1. Evita Fogo Amigo (Ambos são AVG)
+                        if is_killer_avg and is_vitima_avg:
+                            print(f"⚠️ Fogo Amigo ignorado: {killer} vs {vitima}")
+                            continue
 
-                            if not (jogador_avg(killer) and jogador_avg(vitima)):
-
-                                salvar_kill(
-                                    killer,
-                                    vitima,
-                                    dados["arma"],
-                                    dados["distancia"]
-                                )
-
-                    kills_processadas.add(linha)
+                        # 2. Registra apenas se UM for AVG (Membro matando inimigo OU Membro morrendo)
+                        print(f"\n🔥 REGISTRANDO: {killer} ⚔️ {vitima}")
+                        salvar_kill(
+                            killer,
+                            vitima,
+                            dados["arma"],
+                            dados["distancia"]
+                        )
+                    elif is_killer_avg and is_vitima_avg:
+                        print(f"⚠️ Fogo Amigo ignorado: {killer} vs {vitima}")
+                    # Caso contrário, o código apenas ignora silenciosamente
 
         except Exception as erro:
+            print("⚠️ erro no loop:", erro)
 
-            print("⚠️ erro monitor:", erro)
-
-        time.sleep(2)
-
-
-# ==========================
-# MAIN
-# ==========================
+        time.sleep(INTERVALO)
 
 def main():
-
     init_db()
-
     while True:
-
         try:
-
             with sync_playwright() as p:
-
-                browser = p.chromium.launch(
-                headless=False,
-                slow_mo=300,
-                args=[
-                    "--disable-blink-features=AutomationControlled"
-                ]
-            )
-
+                browser = p.chromium.launch(headless=True) # Mude para False se quiser ver o navegador
                 context = browser.new_context()
                 page = context.new_page()
-
                 fazer_login(page)
-
                 monitorar_killfeed(page)
-
         except Exception as erro:
-
             print("❌ erro geral:", erro)
             print("🔄 reiniciando em 10s")
-
             time.sleep(10)
-
 
 if __name__ == "__main__":
     main()

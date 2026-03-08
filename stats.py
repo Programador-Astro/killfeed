@@ -1,197 +1,94 @@
-import sqlite3
-from utils import jogador_avg
-
-DB_NAME = "killfeed.db"
-
-
-def get_connection():
-    return sqlite3.connect(DB_NAME)
-
-
-# ==========================
-# PEGAR PLAYERS AVG
-# ==========================
-
-def get_players_avg():
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    SELECT DISTINCT killer FROM kills
-    UNION
-    SELECT DISTINCT vitima FROM kills
-    """)
-
-    players = [row[0] for row in cursor.fetchall()]
-
-    conn.close()
-
-    return [p for p in players if jogador_avg(p)]
-
-
-# ==========================
-# KILLS
-# ==========================
-
-def get_kills(player):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM kills WHERE killer = ?", (player,)
-    )
-
-    kills = cursor.fetchone()[0]
-
-    conn.close()
-
-    return kills
-
-
-# ==========================
-# MORTES
-# ==========================
-
-def get_deaths(player):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM kills WHERE vitima = ?", (player,)
-    )
-
-    deaths = cursor.fetchone()[0]
-
-    conn.close()
-
-    return deaths
-
-
-# ==========================
-# K/D
-# ==========================
-
-def get_kd(player):
-
-    kills = get_kills(player)
-    deaths = get_deaths(player)
-
-    if deaths == 0:
-        return kills
-
-    return round(kills / deaths, 2)
-
-
-# ==========================
-# ARMA MAIS USADA
-# ==========================
-
-def arma_favorita(player):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT arma, COUNT(*) as total
-        FROM kills
-        WHERE killer = ?
-        GROUP BY arma
-        ORDER BY total DESC
-        LIMIT 1
-    """, (player,))
-
-    result = cursor.fetchone()
-
-    conn.close()
-
-    if result:
-        return result[0]
-
-    return "N/A"
-
-
-# ==========================
-# DISTANCIA MEDIA
-# ==========================
-
-def distancia_media(player):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT distancia
-        FROM kills
-        WHERE killer = ?
-    """, (player,))
-
-    distancias = cursor.fetchall()
-
-    conn.close()
-
-    valores = []
-
-    for d in distancias:
-
-        try:
-            valores.append(int(d[0].replace("m", "")))
-        except:
-            pass
-
-    if not valores:
-        return 0
-
-    return round(sum(valores) / len(valores), 1)
-
+from database import get_connection
+from collections import defaultdict
 
 # ==========================
 # LEADERBOARD
 # ==========================
 
 def leaderboard():
+    conn = get_connection()
+    cursor = conn.cursor()
 
-    players = get_players_avg()
+    # Buscamos os dados brutos
+    cursor.execute("SELECT killer, vitima, arma, distancia FROM kills")
+    rows = cursor.fetchall()
+    conn.close()
+
+    players = defaultdict(lambda: {
+        "player": "",
+        "kills": 0,
+        "deaths": 0,
+        "arma_count": defaultdict(int),
+        "distancias": []
+    })
+
+    for row in rows:
+        # Garante compatibilidade entre SQLite (Row) e Postgres (Dict)
+        if isinstance(row, dict):
+            killer, vitima, arma, distancia = row['killer'], row['vitima'], row['arma'], row['distancia']
+        else:
+            killer, vitima, arma, distancia = row
+
+        # REGRA: Só processa estatísticas para quem tem a tag [A.V.G]
+        
+        # Se o matador for AVG, computa a kill
+        if "[A.V.G]" in killer.upper():
+            players[killer]["player"] = killer
+            players[killer]["kills"] += 1
+            players[killer]["arma_count"][arma] += 1
+            
+            if distancia:
+                try:
+                    # CURA PARA O TYPEERROR: Limpa a string e vira INT antes de ir pra lista
+                    d_limpa = int(str(distancia).lower().replace('m', '').strip())
+                    players[killer]["distancias"].append(d_limpa)
+                except:
+                    pass
+
+        # Se a vítima for AVG, computa a morte
+        if "[A.V.G]" in vitima.upper():
+            players[vitima]["player"] = vitima
+            players[vitima]["deaths"] += 1
 
     ranking = []
 
-    for p in players:
+    for p in players.values():
+        if not p["player"]: continue
 
-        stats = {
-            "player": p,
-            "kills": get_kills(p),
-            "deaths": get_deaths(p),
-            "kd": get_kd(p),
-            "arma": arma_favorita(p),
-            "distancia_media": distancia_media(p)
-        }
+        kills = p["kills"]
+        deaths = p["deaths"]
+        kd = round(kills / deaths, 2) if deaths > 0 else float(kills)
 
-        ranking.append(stats)
+        # Arma favorita
+        arma_fav = "N/A"
+        if p["arma_count"]:
+            arma_fav = max(p["arma_count"], key=p["arma_count"].get)
+
+        # Distancia média (Agora sum() recebe apenas INTs)
+        distancia_media = 0
+        if p["distancias"]:
+            distancia_media = round(sum(p["distancias"]) / len(p["distancias"]), 1)
+
+        ranking.append({
+            "player": p["player"],
+            "kills": kills,
+            "deaths": deaths,
+            "kd": kd,
+            "arma": arma_fav,
+            "distancia_media": distancia_media
+        })
 
     ranking.sort(key=lambda x: x["kills"], reverse=True)
-
     return ranking
 
-
-# ==========================
-# DESTAQUES
-# ==========================
-
 def destaques():
-
     ranking = leaderboard()
-
     if not ranking:
-        return {}
-
-    mais_kills = max(ranking, key=lambda x: x["kills"])
-    melhor_kd = max(ranking, key=lambda x: x["kd"])
-    menos_mortes = min(ranking, key=lambda x: x["deaths"])
+        vazio = {"player": "N/A", "kills": 0, "deaths": 0, "kd": 0, "arma": "N/A", "distancia_media": 0}
+        return {"mais_kills": vazio, "melhor_kd": vazio, "menos_mortes": vazio}
 
     return {
-        "mais_kills": mais_kills,
-        "melhor_kd": melhor_kd,
-        "menos_mortes": menos_mortes
+        "mais_kills": max(ranking, key=lambda x: x["kills"]),
+        "melhor_kd": max(ranking, key=lambda x: x["kd"]),
+        "menos_mortes": min(ranking, key=lambda x: x["deaths"])
     }
