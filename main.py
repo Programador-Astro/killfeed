@@ -5,7 +5,17 @@ from dotenv import load_dotenv
 from parser import parse_killfeed
 from database import init_db, salvar_kill
 from utils import jogador_avg
+import logging
+from playwright.sync_api import sync_playwright, Page, Error as PlaywrightError
+# Configuração básica para exibir as mensagens no terminal
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S"
+)
 
+# Criar a instância do logger que o código utiliza
+logger = logging.getLogger(__name__)
 # ==========================
 # CONFIG
 # ==========================
@@ -16,20 +26,45 @@ EMAIL = os.getenv("DISCORD_EMAIL")
 SENHA = os.getenv("DISCORD_PASSWORD")
 INTERVALO = 2
 
-def fazer_login(page):
-    print("🌐 Abrindo Discord...")
-    page.goto(URL)
+def fazer_login(page: Page) -> None:
+    logger.info("🌐 Abrindo Discord...")
+    
     try:
-        page.get_by_text("Continuar no Navegador").click(timeout=5000)
-    except:
-        pass
-
-    if page.locator("input[name='email']").is_visible(timeout=5000):
+        # 1. Vai para a página e espera o carregamento básico
+        page.goto("https://discord.com/login", wait_until="domcontentloaded")
+        
+        # 2. Espera os campos aparecerem
+        page.wait_for_selector("input[name='email']", timeout=30000)
         page.fill("input[name='email']", EMAIL)
         page.fill("input[name='password']", SENHA)
-        page.get_by_role("button", name="Entrar").click()
-        page.wait_for_timeout(8000)
-        print("✅ Login realizado")
+        
+        logger.info("Enviando credenciais...")
+
+        # 3. Tenta clicar no botão de forma mais robusta
+        # Em vez de depender do nome "Entrar", pegamos o botão do tipo 'submit'
+        botao_login = page.locator("button[type='submit']")
+        
+        # Se o botão estiver visível, clica. Se não, tenta pelo texto (PT ou EN)
+        if botao_login.count() > 0:
+            botao_login.click()
+        else:
+            # Fallback caso a estrutura mude: procura por texto
+            page.locator("button:has-text('Entrar'), button:has-text('Log In')").click()
+        
+        # 4. Aumentamos um pouco o tempo para o login processar no servidor
+        logger.info("Aguardando autenticação...")
+        page.wait_for_timeout(12000)
+        
+        # 5. Verifica se ainda estamos na página de login (pode ter dado erro de senha ou captcha)
+        if "login" in page.url:
+            logger.warning("⚠️ Ainda na página de login. Verifique se apareceu um Captcha ou erro de senha.")
+        
+        logger.info("✅ Login processado. Navegando para o canal...")
+        page.goto(URL, wait_until="networkidle")
+        
+    except PlaywrightError as e:
+        logger.error(f"Falha durante o processo de login: {e}")
+        raise
 
 def monitorar_killfeed(page):
     print("🔎 Esperando killfeed...")
