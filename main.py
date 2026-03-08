@@ -20,14 +20,14 @@ def fazer_login(page):
     print("🌐 Abrindo Discord...")
     page.goto(URL)
     try:
-        page.get_by_text("Continuar no Navegador").click(timeout=5000)
+        page.get_by_text("Continue in Browser").click(timeout=5000)
     except:
         pass
 
     if page.locator("input[name='email']").is_visible(timeout=5000):
         page.fill("input[name='email']", EMAIL)
         page.fill("input[name='password']", SENHA)
-        page.get_by_role("button", name="Entrar").click()
+        page.get_by_role("button", name="Log in").click()
         page.wait_for_timeout(8000)
         print("✅ Login realizado")
 
@@ -98,7 +98,7 @@ def main():
 
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                    locale="pt-BR"
+                    locale="en-US"
                 )
                 page = context.new_page()
                 fazer_login(page)
