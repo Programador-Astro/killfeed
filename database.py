@@ -1,6 +1,9 @@
 import sqlite3
-
+import psycopg2
+import os
+from dotenv import load_dotenv
 DB_NAME = "killfeed.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # ==========================
@@ -9,14 +12,10 @@ DB_NAME = "killfeed.db"
 
 def get_connection():
 
-    conn = sqlite3.connect(
-        DB_NAME,
-        timeout=10
-    )
+    if DATABASE_URL:
+        return psycopg2.connect(DATABASE_URL)
 
-    conn.row_factory = sqlite3.Row
-
-    return conn
+    return sqlite3.connect("killfeed.db")
 
 
 # ==========================
