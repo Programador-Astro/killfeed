@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avangers Clan Stats</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Variáveis de Cores (Tema Dark Gamer) */
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #151b2b;
+            --neon-red: #ff2a2a;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #2a3441;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 2rem;
+            background-image: radial-gradient(circle at top, #1a233a 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Cabeçalho */
+        h1 {
+            text-align: center;
+            font-size: 3.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 2rem;
+            color: #fff;
+            text-shadow: 0 0 15px var(--neon-red), 0 0 30px var(--neon-red);
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin: 2.5rem 0 1.5rem 0;
+            border-left: 5px solid var(--neon-red);
+            padding-left: 15px;
+            color: #fff;
+        }
+
+        /* Cartões de Destaque */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--neon-red);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(255, 42, 42, 0.15);
+        }
+
+        .card .title {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .card b {
+            display: block;
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .card .stat {
+            font-size: 1.5rem;
+            color: var(--neon-red);
+            font-weight: 600;
+        }
+
+        /* Tabela de Leaderboard */
+        .table-container {
+            overflow-x: auto;
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        th, td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: rgba(0, 0, 0, 0.2);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        tr:hover {
+            background-color: rgba(255, 42, 42, 0.05);
+        }
+
+        tr:first-child td {
+            color: #ffd700; /* Dourado para o Top 1 */
+            font-weight: bold;
+        }
+
+        /* Gráfico */
+        .chart-container {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🏆 AVANGERS CLAN</h1>
+
+    <div class="cards">
+        <div class="card">
+            <div class="title">🔥 Máquina de Kills</div>
+            <b>{{ destaque.mais_kills.player }}</b>
+            <div class="stat">{{ destaque.mais_kills.kills }} Kills</div>
+        </div>
+
+        <div class="card">
+            <div class="title">🎯 Implacável (Melhor KD)</div>
+            <b>{{ destaque.melhor_kd.player }}</b>
+            <div class="stat">KD: {{ destaque.melhor_kd.kd }}</div>
+        </div>
+
+        <div class="card">
+            <div class="title">🛡️ Sobrevivente</div>
+            <b>{{ destaque.menos_mortes.player }}</b>
+            <div class="stat">{{ destaque.menos_mortes.deaths }} Mortes</div>
+        </div>
+    </div>
+
+    <h2>💀 Leaderboard</h2>
+    <div class="table-container">
+        <table>
+            <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Kills</th>
+                <th>Deaths</th>
+                <th>K/D</th>
+                <th>Arma Favorita</th>
+                <th>Dist. Média</th>
+            </tr>
+            
+            {% for p in ranking %}
+            <tr>
+                <td>#{{ loop.index }}</td>
+                <td>{{ p.player }}</td>
+                <td style="color: #4ade80;">{{ p.kills }}</td>
+                <td style="color: #f87171;">{{ p.deaths }}</td>
+                <td style="font-weight: bold;">{{ p.kd }}</td>
+                <td>{{ p.arma }}</td>
+                <td>{{ p.distancia_media }}m</td>
+            </tr>
+            {% endfor %}
+            
+        </table>
+    </div>
+
+    <h2>📊 Desempenho do Esquadrão</h2>
+    <div class="chart-container">
+        <canvas id="killsChart"></canvas>
+    </div>
+
+</div>
+
+<script>
+    // Injetando dados do Python/Jinja2 no JavaScript
+    const players = [
+        {% for p in ranking %}
+        "{{ p.player }}",
+        {% endfor %}
+    ];
+
+    const kills = [
+        {% for p in ranking %}
+        {{ p.kills }},
+        {% endfor %}
+    ];
+
+    // Configuração do Gráfico com Tema Dark Gamer
+    const ctx = document.getElementById("killsChart").getContext('2d');
+    
+    // Criando um gradiente para as barras do gráfico
+    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(255, 42, 42, 0.8)');   // Vermelho vivo
+    gradient.addColorStop(1, 'rgba(255, 42, 42, 0.2)');   // Transparente embaixo
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: players,
+            datasets: [{
+                label: "Total de Kills",
+                data: kills,
+                backgroundColor: gradient,
+                borderColor: '#ff2a2a',
+                borderWidth: 2,
+                borderRadius: 4, // Barras com cantos arredondados
+                hoverBackgroundColor: '#ff2a2a'
+            }]
+        },
+        options: {
+            responsive: true,
+            color: '#94a3b8', // Cor do texto das legendas
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)', // Linhas de fundo sutis
+                        borderColor: 'transparent'
+                    },
+                    ticks: {
+                        color: '#94a3b8'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false // Remove linhas verticais para ficar mais limpo
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: {
+                            family: "'Rajdhani', sans-serif",
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#e2e8f0',
+                        font: {
+                            family: "'Rajdhani', sans-serif",
+                            size: 16
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
