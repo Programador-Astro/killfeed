@@ -94,7 +94,7 @@ def main():
     while True:
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True) # Mude para False se quiser ver o navegador
+                browser = p.chromium.launch(headless=False) # Mude para False se quiser ver o navegador
                 context = browser.new_context()
                 page = context.new_page()
                 fazer_login(page)
