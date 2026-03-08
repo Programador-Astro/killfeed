@@ -94,7 +94,7 @@ def main():
     while True:
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=False) # Mude para False se quiser ver o navegador
+                browser = p.chromium.launch(headless=True) # Mude para False se quiser ver o navegador
 
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
