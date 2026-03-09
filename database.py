@@ -69,7 +69,7 @@ def init_db():
 def salvar_kill(killer, vitima, arma, distancia):
     try:
         # 🛡️ TRAVA DE SEGURANÇA: Só prossegue se pelo menos um tiver a tag [A.V.G]
-        tag = "[A.V.G]"
+        tag = "[?]"
         if tag.upper() not in killer.upper() and tag.upper() not in vitima.upper():
             # Se ninguém for do clã, ignora silenciosamente e não gasta banco de dados
             return 
@@ -128,7 +128,7 @@ def leaderboard():
         # REGRA: Só processa as estatísticas de quem tem a tag [A.V.G]
         
         # Se o matador for AVG, computa a kill
-        if "[A.V.G]" in killer.upper():
+        if "[?]" in killer.upper():
             players[killer]["player"] = killer
             players[killer]["kills"] += 1
             players[killer]["arma_count"][arma] += 1
@@ -142,7 +142,7 @@ def leaderboard():
                     pass
 
         # Se a vítima for AVG, computa a morte
-        if "[A.V.G]" in vitima.upper():
+        if "[?]" in vitima.upper():
             players[vitima]["player"] = vitima
             players[vitima]["deaths"] += 1
 
@@ -150,7 +150,7 @@ def leaderboard():
 
     for p in players.values():
         # Filtro final: só entra no ranking se tiver nome e for AVG
-        if not p["player"] or "[A.V.G]" not in p["player"].upper():
+        if not p["player"] or "[?]" not in p["player"].upper():
             continue
 
         kills = p["kills"]

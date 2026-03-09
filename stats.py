@@ -32,7 +32,7 @@ def leaderboard():
         # REGRA: Só processa estatísticas para quem tem a tag [A.V.G]
         
         # Se o matador for AVG, computa a kill
-        if "[A.V.G]" in killer.upper():
+        if "[?]" in killer.upper():
             players[killer]["player"] = killer
             players[killer]["kills"] += 1
             players[killer]["arma_count"][arma] += 1
@@ -46,7 +46,7 @@ def leaderboard():
                     pass
 
         # Se a vítima for AVG, computa a morte
-        if "[A.V.G]" in vitima.upper():
+        if "[?]" in vitima.upper():
             players[vitima]["player"] = vitima
             players[vitima]["deaths"] += 1
 

@@ -14,7 +14,7 @@ def testar():
     salvar_kill("[A.V.G]Davi", "Inimigo_Bob", "M4A1", 50)
     
     # Caso onde AVG morre (Deve contar morte para Davi, mas o Inimigo não aparece no ranking)
-    salvar_kill("Inimigo_Sniper", "[A.V.G]Davi", "AWM", "400m")
+    salvar_kill("Inimigo_Sniper", "$ Davi", "AWM", "400m")
     salvar_kill("Inimigo_Sniper", "Davi", "AWM", "400m")
 
     print("✅ Sucesso! Agora abra o site.")
